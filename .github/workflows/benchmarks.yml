@@ -8,6 +8,8 @@ on:
   pull_request:
     branches:
       - "**"
+  issue_comment:
+    types: [created, edited]
 
 jobs:
   build:
@@ -27,25 +29,57 @@ jobs:
           OWNER: ${{ github.event.repository.owner.login }}
           REPO: ${{ github.event.repository.name }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ACTIONABLE: ${{ startsWith(github.event.comment.body, 'test this please ✅') }}
           AUTH_TOKEN: ${{ secrets.DEPLOY_PAT }}
         run: |
-          echo "Send curl request..."
-          echo "${AUTH_TOKEN}" > nothing-here.md
-          cat nothing-here.md
-          curl \
-            -s \
-            -X POST https://api.github.com/repos/${DISPATCH_OWNER}/${DISPATCH_REPO}/dispatches \
-            -H "Accept: application/vnd.github.everest-preview+json" \
-            -H "Authorization: token ${AUTH_TOKEN}" \
-            -d \
-            '
-            {
-              "event_type": "${EVENT_NAME}",
-              "client_payload": {
-                "pr_id": "${PR_ID}",
-                "repo": "${REPO}",
-                "owner": "${OWNER}",
-                "commit_sha": "${COMMIT_SHA}",
-                "action": "${EVENT_ACTION}"
-              }
-            }'
+          # Exit early if `jq` is not present
+          set -e
+          jq --version
+          set +e
+
+          dispatch_benchmarks () {
+            echo "Sending curl request..."
+            curl \
+              -s \
+              -X POST https://api.github.com/repos/${DISPATCH_OWNER}/${DISPATCH_REPO}/dispatches \
+              -H "Accept: application/vnd.github.everest-preview+json" \
+              -H "Authorization: token ${AUTH_TOKEN}" \
+              -d \
+              '
+              {
+                "event_type": "'"${EVENT_NAME}"'",
+                "client_payload": {
+                  "pr_id": "'"${PR_ID}"'",
+                  "repo": "'"${REPO}"'",
+                  "owner": "'"${OWNER}"'",
+                  "commit_sha": "'"${COMMIT_SHA}"'",
+                  "action": "'"${EVENT_ACTION}"'"
+                }
+              }'
+          }
+
+          if [ "${EVENT_NAME}" == "issue_comment" ]; then
+            if [ "${ISSUE_NUMBER}" != "" ]; then
+              echo "${COMMENT_BODY}"
+              # Figure out if comment came from pull-request
+              IS_PR=$(curl -s https://api.github.com/repos/${OWNER}/${REPO}/issues/${ISSUE_NUMBER} | jq -c '.pull_request')
+
+              if [ "${IS_PR}" != "" ]; then
+                echo "Comment from pull/${ISSUE_NUMBER}."
+
+                # It is a pull-request; check if actionable
+                if [ "${COMMENT_BODY}" == "test this please ✅" ]; then
+                  dispatch_benchmarks
+                else
+                  echo "Comment not actionable."
+                fi
+              else
+                echo "Comment not from pull-request."
+              fi
+            fi
+          else
+            # Not a comment, it's a pull-request; dispatch!
+            dispatch_benchmarks
+          fi
