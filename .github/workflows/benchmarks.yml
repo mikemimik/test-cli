@@ -1,0 +1,49 @@
+---
+name: Benchmark Suite
+
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  build:
+    name: Trigger Benchmarks
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Webhook
+        env:
+          DISPATCH_REPO: "test-benchmark"
+          DISPATCH_OWNER: "mikemimik"
+          TEST_GITHUB_EVENT: ${{ toJson(github.event) }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_ID: ${{ github.event.pull_request.number }}
+          OWNER: ${{ github.event.repository.owner.login }}
+          REPO: ${{ github.event.repository.name }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          AUTH_TOKEN: ${{ secrets.DEPLOY_PAT }}
+        run: |
+          echo "Send curl request..."
+          curl \
+            -s \
+            -X POST https://api.github.com/repos/${DISPATCH_OWNER}/${DISPATCH_REPO}/dispatches \
+            -H "Accept: application/vnd.github.everest-preview+json" \
+            -H "Authorization: token ${AUTH_TOKEN}" \
+            -d \
+            '
+            {
+              "event_type": "${EVENT_NAME}",
+              "client_payload": {
+                "pr_id": "${PR_ID}",
+                "repo": "${REPO}",
+                "owner": "${OWNER}",
+                "commit_sha": "${COMMIT_SHA}",
+                "action": "${EVENT_ACTION}"
+              }
+            }'
