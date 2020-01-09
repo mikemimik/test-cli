@@ -1,0 +1,34 @@
+---
+name: Testing Windows
+
+on:
+  push:
+    branches:
+      - "windows"
+
+jobs:
+  windows:
+    name: Test Windows
+
+    strategy:
+      matrix:
+        node-version: [10.x, 12.x]
+
+    runs-on: windows-latest
+
+    steps:
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Run Commands
+        env:
+          CONTEXT: ${{ toJson(github) }}
+        run: |
+          # Windows Handler
+          Get-Item -Path Env:*
+          Get-Command node
+          Get-Command npm
+          node -p "'execPath: ' + process.execPath"
+          node -p "'require/resolve: ' + require('path').resolve(__dirname, 'node')"
+          node -e "console.log('resolve-node: '); try { require.resolve('node') } catch (_) {}"
