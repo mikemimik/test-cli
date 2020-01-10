@@ -15,8 +15,8 @@ jobs:
       - name: Handle Incoming Comment
         env:
           TEST_GITHUB_EVENT: ${{ toJson(github.event) }}
-          DISPATCH_REPO: "benchmarks"
-          DISPATCH_OWNER: "npm"
+          DISPATCH_REPO: "test-benchmark"
+          DISPATCH_OWNER: "mikemimik"
           EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: ${{ github.event.action }}
           OWNER: ${{ github.event.repository.owner.login }}
@@ -26,7 +26,7 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
           COMMENT_NODE_ID: ${{ github.event.comment.node_id }}
           COMMENT_ACTIONABLE: ${{ startsWith(github.event.comment.body, 'test this please ✅') }}
-          AUTH_TOKEN: ${{ secrets.NPM_DEPLOY_USER_PAT }}
+          AUTH_TOKEN: ${{ secrets.DEPLOY_PAT }}
         run: |
           # Comment Handler
 
@@ -45,8 +45,8 @@ jobs:
             if [ "${COMMENT_ACTIONABLE}" == "true" ]; then
               # Fetch pull-request information
               PR_DATA=$(curl -s "${IS_PR}")
-              PR_OWNER=$(echo "${PR_DATA}" | jq '.head.repo.owner.login')
-              PR_REPO=$(echo "${PR_DATA}" | jq '.head.repo.name')
+              PR_OWNER=$(echo "${PR_DATA}" | jq -r '.head.repo.owner.login')
+              PR_REPO=$(echo "${PR_DATA}" | jq -r '.head.repo.name')
               PR_COMMIT_SHA=$(curl -s "${IS_PR}/commits" | jq -r '.[0].sha')
 
               # dispatch request for benchmarks
