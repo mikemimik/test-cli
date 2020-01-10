@@ -48,7 +48,7 @@ jobs:
                   "pr_id": "'"${PR_NUMBER}"'",
                   "repo": "'"${REPO}"'",
                   "owner": "'"${PR_OWNER}"'",
-                  "commit_sha": "'"${REF_SHA}"'",
+                  "commit_sha": "'"${REF_SHA}"'"
                 }
               }'
           }
