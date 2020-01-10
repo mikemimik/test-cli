@@ -23,15 +23,17 @@ jobs:
           REPO: ${{ github.event.repository.name }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_NODE_ID: ${{ github.event.comment.node_id }}
           COMMENT_ACTIONABLE: ${{ startsWith(github.event.comment.body, 'test this please ✅') }}
           AUTH_TOKEN: ${{ secrets.NPM_DEPLOY_USER_PAT }}
         run: |
           # Comment Handler
 
+          # Creates an exit early condition if there are errors
           # Exit early if `jq` is not present
           set -e
           jq --version
-          set +e
 
           # Figure out if comment came from pull-request or issue
           IS_PR=$(curl -s https://api.github.com/repos/${OWNER}/${REPO}/issues/${ISSUE_NUMBER} | jq -cr '.pull_request.url')
@@ -63,6 +65,24 @@ jobs:
                     "repo": "'"${PR_REPO}"'",
                     "owner": "'"${PR_OWNER}"'",
                     "commit_sha": "'"${PR_COMMIT_SHA}"'"
+                  }
+                }'
+
+              # Create reaction on comment to confirm dispatch was sent
+              curl \
+                -s \
+                -X POST https://api.github.com/graphql \
+                -H "Content-Type: application/json" \
+                -H "Authorization: token ${AUTH_TOKEN}" \
+                -d \
+                '
+                {
+                  "query": "mutation($inputData:AddReactionInput!) { addReaction(input:$inputData) { reaction { content } } }",
+                  "variables": {
+                    "inputData": {
+                      "subjectId": "'"${COMMENT_NODE_ID}"'",
+                      "content": "ROCKET"
+                    }
                   }
                 }'
             else
