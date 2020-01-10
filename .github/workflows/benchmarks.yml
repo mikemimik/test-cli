@@ -16,36 +16,49 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger Webhook
+      - name: Handle Incoming Pull-Request
         env:
           TEST_GITHUB_EVENT: ${{ toJson(github.event) }}
           DISPATCH_REPO: "test-benchmark"
           DISPATCH_OWNER: "mikemimik"
           EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: ${{ github.event.action }}
-          PR_ID: ${{ github.event.pull_request.number }}
-          OWNER: ${{ github.event.repository.owner.login }}
           REPO: ${{ github.event.repository.name }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_OWNER: ${{ github.event.pull_request.head.repo.owner.login }}
+          PR_COMMITS_URL: ${{ github.event.pull_request.commits_url }}
+          PR_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           AUTH_TOKEN: ${{ secrets.DEPLOY_PAT }}
         run: |
           # Dispatch Handler
 
-          echo "Dispatching request..."
-          curl \
-            -s \
-            -X POST https://api.github.com/repos/${DISPATCH_OWNER}/${DISPATCH_REPO}/dispatches \
-            -H "Accept: application/vnd.github.everest-preview+json" \
-            -H "Authorization: token ${AUTH_TOKEN}" \
-            -d \
-            '
-            {
-              "event_type": "'"${EVENT_NAME}"'",
-              "client_payload": {
-                "pr_id": "'"${PR_ID}"'",
-                "repo": "'"${REPO}"'",
-                "owner": "'"${OWNER}"'",
-                "commit_sha": "'"${COMMIT_SHA}"'",
-                "event_action": "'"${EVENT_ACTION}"'"
-              }
-            }'
+          dispatch_request () {
+            echo "Dispatching request..."
+            REF_SHA=$1
+            curl \
+              -s \
+              -X POST https://api.github.com/repos/${DISPATCH_OWNER}/${DISPATCH_REPO}/dispatches \
+              -H "Accept: application/vnd.github.everest-preview+json" \
+              -H "Authorization: token ${AUTH_TOKEN}" \
+              -d \
+              '
+              {
+                "event_type": "'"${EVENT_NAME}"'",
+                "client_payload": {
+                  "pr_id": "'"${PR_NUMBER}"'",
+                  "repo": "'"${REPO}"'",
+                  "owner": "'"${PR_OWNER}"'",
+                  "commit_sha": "'"${REF_SHA}"'",
+                }
+              }'
+          }
+
+          if [ "${EVENT_ACTION}" == "opened" ] && [ "${AUTH_TOKEN}" != "" ]; then
+            COMMIT_SHA=$(curl -s "${PR_COMMITS_URL}" | jq -r '.[0].sha')
+
+            # Dispatch request for benchmarks
+            dispatch_request "${COMMIT_SHA}"
+          else
+            # Dispatch request for benchmarks
+            dispatch_request "${PR_COMMIT_SHA}"
+          fi
