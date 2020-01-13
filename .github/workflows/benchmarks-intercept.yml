@@ -1,0 +1,39 @@
+---
+name: Benchmark Intercept
+
+on:
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  intercept:
+    name: Trigger The Trigger
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Handle Incoming Pull-Request
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          AUTH_TOKEN: ${{ secrets.DEPLOY_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # Dispatch Handler
+
+          curl \
+            -s \
+            -X POST https://api.github.com/repos/npm/cli/dispatches \
+            -H "Accept: application/vnd.github.everest-preview+json" \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -d \
+            '
+            {
+              "event_type": "'"${EVENT_NAME}"'",
+              "client_payload": {
+                "pr_id": "'"${PR_NUMBER}"'",
+                "repo": "'"${REPO}"'",
+                "owner": "'"${PR_OWNER}"'",
+                "commit_sha": "'"${REF_SHA}"'"
+              }
+            }'

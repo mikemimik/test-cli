@@ -1,0 +1,19 @@
+---
+name: Testing
+
+on: repository_dispatch
+
+jobs:
+  build:
+    name: dispatch request
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Handle Incoming Request
+        env:
+          TEST_GITHUB_EVENT: ${{ toJson(github.event) }}
+          AUTH_TOKEN: ${{ secrets.DEPLOY_PAT }}
+        run: |
+          # Dispatch Handler
+          echo "Hello World"
